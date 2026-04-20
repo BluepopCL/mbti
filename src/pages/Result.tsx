@@ -3,15 +3,30 @@ import { QuizScores, ResultJSON, PersonalityData } from '../types';
 import { PERSONALITIES } from '../constants';
 import { generatePersonalityAnalysis } from '../services/geminiService';
 import { RadarChart } from '../components/RadarChart';
-import { motion } from 'motion/react';
-import { RotateCcw, Sparkles, Target, Compass, Heart, Award, Download, Volume2, Square, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { RotateCcw, Sparkles, Target, Compass, Heart, Award, Download, Volume2, Square, AlertCircle, LogIn, ChevronLeft, Info, Activity, User as UserIcon } from 'lucide-react';
 import html2canvas from 'html2canvas';
+
+// Firebase imports
+import { auth, db, googleProvider } from '../lib/firebase';
+import { signInWithPopup, signOut } from 'firebase/auth';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { doc, setDoc, collection, addDoc, serverTimestamp, getDoc, updateDoc, increment } from 'firebase/firestore';
 
 interface ResultProps {
   scores: QuizScores;
   onRestart: () => void;
   isMuted: boolean;
 }
+
+const AI_THINKING_STEPS = [
+  "正在解析您的认知功能矩阵...",
+  "正在对比 16 种人格原型库...",
+  "正在深度挖掘您的潜意识倾向...",
+  "正在计算各维度的能量分布...",
+  "正在优化您的个性化成长路径...",
+  "正在生成您的专属人生格言..."
+];
 
 export const Result: React.FC<ResultProps> = ({ scores, onRestart, isMuted }) => {
   const [loading, setLoading] = useState(true);
@@ -20,7 +35,47 @@ export const Result: React.FC<ResultProps> = ({ scores, onRestart, isMuted }) =>
   const [personality, setPersonality] = useState<PersonalityData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+  const [thinkingStep, setThinkingStep] = useState(0);
+  const [show建议Modal, setShow建议Modal] = useState<{title: string, content: string} | null>(null);
+  const [rarity, setRarity] = useState<number | null>(null);
   const posterRef = useRef<HTMLDivElement>(null);
+
+  const [user] = useAuthState(auth);
+
+  useEffect(() => {
+    if (loading) {
+      const interval = setInterval(() => {
+        setThinkingStep((prev) => (prev + 1) % AI_THINKING_STEPS.length);
+      }, 2500);
+      return () => clearInterval(interval);
+    }
+  }, [loading]);
+
+  const saveToFirebase = async (data: ResultJSON, p: PersonalityData, variant: string) => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'quiz_records'), {
+        userId: user.uid,
+        personalityId: p.id,
+        variant,
+        scores,
+        analysis: data,
+        createdAt: serverTimestamp(),
+        isPublic: true
+      });
+
+      const statsRef = doc(db, 'stats', 'mbti');
+      const statsSnap = await getDoc(statsRef);
+      if (!statsSnap.exists()) {
+        await setDoc(statsRef, { totalTests: 1, typeCounts: { [p.id]: 1 } });
+      } else {
+        await updateDoc(statsRef, {
+          totalTests: increment(1),
+          [`typeCounts.${p.id}`]: increment(1)
+        });
+      }
+    } catch (err) { console.error("Save failed:", err); }
+  };
 
   useEffect(() => {
     // 1. Determine Type
@@ -36,12 +91,25 @@ export const Result: React.FC<ResultProps> = ({ scores, onRestart, isMuted }) =>
     const pData = PERSONALITIES.find(p => p.id === typeStr) || PERSONALITIES[0];
     setPersonality(pData);
 
+    // Fetch Stats for Rarity
+    getDoc(doc(db, 'stats', 'mbti')).then(snap => {
+      if (snap.exists()) {
+        const stats = snap.data();
+        const count = stats.typeCounts?.[typeStr] || 0;
+        const total = stats.totalTests || 1;
+        setRarity(Math.round((count / total) * 100));
+      }
+    });
+
     // 2. Fetch AI Analysis
     generatePersonalityAnalysis(scores, typeStr, variantStr).then(res => {
       setAnalysis(res);
       setLoading(false);
       
-      // Auto speak motto when done
+      if (user) {
+        saveToFirebase(res, pData, variantStr);
+      }
+
       if (res.motto && !isMuted) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(res.motto);
@@ -50,15 +118,10 @@ export const Result: React.FC<ResultProps> = ({ scores, onRestart, isMuted }) =>
       }
     }).catch(err => {
       console.error(err);
-      const errMsg = err?.message || String(err);
-      if (errMsg.includes('429') || errMsg.includes('EXHAUSTED') || errMsg.includes('quota')) {
-        setErrorMsg('非常抱歉，由于当前参与测试的人数过多，AI 接口调用已达到配额限制。请您稍后重新点击测试！');
-      } else {
-        setErrorMsg('生成分析报告时出现错误，请检查网络或稍后再试。');
-      }
+      setErrorMsg('生成分析报告时出现错误，请检查网络或稍后再试。');
       setLoading(false);
     });
-  }, [scores, isMuted]);
+  }, [scores, user]);
 
   const handleSavePoster = async () => {
     if (!posterRef.current) return;
@@ -138,27 +201,57 @@ export const Result: React.FC<ResultProps> = ({ scores, onRestart, isMuted }) =>
     }
   }, []);
 
+  const handleLogin = async () => {
+    try { await signInWithPopup(auth, googleProvider); } catch (err) { console.error("Login failed:", err); }
+  };
+
+  const getDimensionTip = (dimension: string, value: number) => {
+    const tips: Record<string, string> = {
+      'E': value > 7 ? "您是一个极度依赖社交获取能量的人，建议在忙碌后安排群体活动来回血。" : "您有较强的外部适应性，能在社交中游刃有余。",
+      'I': value > 7 ? "您高度依赖内部世界，深度社交后请务必留足独处回血的时间，避免能量耗尽。" : "您享受独处的宁静，这是您深度思考的源泉。",
+      'S': value > 7 ? "您极度注重细节和现实，建议偶尔抬头看看远大的愿景，避免陷入琐碎。" : "您务实稳健，是团队中可靠的定海神针。",
+      'N': value > 7 ? "您满脑子都是灵感和未来，记得偶尔脚踏实地，将构想落地为现实。" : "您极具直觉敏锐度，擅长捕捉事物的潜在联系。",
+      'T': value > 7 ? "逻辑是您的铠甲，但有时冷静得让人感到疏离，试着多表达一点情感关怀。" : "您的决策基于客观分析，理性是您的强项。",
+      'F': value > 7 ? "同理心是您的超能力，但别让过度共情压垮了自己，记得设立情感边界。" : "您心思细腻，能敏锐察觉到他人的情感波动。",
+      'J': value > 7 ? "掌控感让您安心，但计划赶不上变化时，试着放下执念，拥抱生活的随机性。" : "您条理清晰，是执行计划的最佳人选。",
+      'P': value > 7 ? "您热爱自由与无限可能，但偶尔的截止日期和纪律能帮您更有效地达成目标。" : "您灵活多变，能在变化中发现独特的机遇。",
+      'A': value > 7 ? "您异常沉稳自信，这种稳定性深受他人信赖，但也需警惕由此带来的过度乐观。" : "您情绪饱满而稳定，抗压性极强。",
+      'T_DIM': value > 7 ? "您是一个完美的追求者，压力是您的动力但也可能过载，学会与不完美的自己和解。" : "您对自我要求极高，这促使您不断进化。"
+    };
+    return tips[dimension] || "";
+  };
+
   const renderDichotomy = (left: string, right: string, leftScore: number, rightScore: number, leftLabel: string, rightLabel: string) => {
-    // Each dimension max sum is effectively 9 from 3 questions (-3 to +3 logic)
     const total = leftScore + rightScore;
     const leftPct = total > 0 ? Math.round((leftScore / total) * 100) : 50;
     const rightPct = 100 - leftPct;
 
+    const tip = getDimensionTip(left, leftScore);
+    const rightTip = getDimensionTip(right === 'T' ? 'T_DIM' : right, rightScore);
+
     return (
       <div className="mb-5 last:mb-0">
-        <div className="flex justify-between text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
-          <span className="flex items-center gap-1.5">
-            <span className="text-indigo-600">{left}</span> 
+        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-widest">
+          <button 
+            onClick={() => setShow建议Modal({ title: `${leftLabel} 深度洞见`, content: tip })}
+            className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors"
+          >
+            <span className={leftScore >= rightScore ? "text-indigo-600" : ""}>{left}</span> 
             {leftLabel} ({leftPct}%)
-          </span>
-          <span className="flex items-center gap-1.5">
+            <Info size={10} />
+          </button>
+          <button 
+            onClick={() => setShow建议Modal({ title: `${rightLabel} 深度洞见`, content: rightTip })}
+            className="flex items-center gap-1.5 hover:text-emerald-600 transition-colors"
+          >
+            <Info size={10} />
             ({rightPct}%) {rightLabel} 
-            <span className="text-emerald-600">{right}</span>
-          </span>
+            <span className={rightScore > leftScore ? "text-emerald-600" : ""}>{right}</span>
+          </button>
         </div>
-        <div className="h-2.5 flex rounded-full overflow-hidden bg-slate-100 shadow-inner">
-          <div className="h-full bg-indigo-500/80 transition-all duration-1000" style={{ width: `${leftPct}%` }}></div>
-          <div className="h-full bg-emerald-500/80 transition-all duration-1000" style={{ width: `${rightPct}%` }}></div>
+        <div className="h-2 flex rounded-full overflow-hidden bg-slate-100 shadow-inner">
+          <div className="h-full bg-indigo-500/70 transition-all duration-1000" style={{ width: `${leftPct}%` }}></div>
+          <div className="h-full bg-emerald-500/70 transition-all duration-1000" style={{ width: `${rightPct}%` }}></div>
         </div>
       </div>
     );
@@ -170,22 +263,58 @@ export const Result: React.FC<ResultProps> = ({ scores, onRestart, isMuted }) =>
     <motion.div 
       initial={{ opacity: 0 }} 
       animate={{ opacity: 1 }}
-      className="max-w-5xl mx-auto px-4 py-12 md:py-16"
+      className="min-h-screen transition-colors duration-1000 overflow-x-hidden"
+      style={{ 
+        backgroundColor: personality.colorHex + '05', // 5% opacity personality color as bg
+      }}
     >
-      <div ref={posterRef} className="pb-8 bg-[#f8fafc]">
+      <div ref={posterRef} className="max-w-5xl mx-auto px-4 py-12 md:py-16">
+        {/* Dynamic Theme Header */}
         <div className="text-center mb-16 relative">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-amber-400/20 blur-[100px] rounded-full -z-10"></div>
-        <h1 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4">您的测试结果 Your Result</h1>
-        <div className="flex justify-center items-center gap-6 mb-6">
-          <div className={`text-6xl md:text-8xl font-black tracking-tighter ${personality.colorClass.split(' ')[1]}`}>
-            {personality.id.toUpperCase()}-{scores.A >= scores.Tu ? 'A' : 'T'}
-          </div>
-          <div className="text-left leading-tight">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-800">{personality.nameCn}</h2>
-            <p className="text-lg text-slate-500 font-serif italic mt-1">{personality.nameEn}</p>
+          <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 blur-[120px] rounded-full -z-10 bg-current opacity-30 ${personality.colorClass.split(' ')[0]}`}></div>
+          <div className="flex flex-col items-center">
+            <div className={`inline-block px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.3em] mb-4 bg-white shadow-sm border border-slate-100 ${personality.colorClass.split(' ')[1]}`}>
+              Test Result Analysis
+            </div>
+            <div className="flex justify-center items-center gap-6 mb-8">
+              <div className={`text-7xl md:text-9xl font-black tracking-tighter ${personality.colorClass.split(' ')[1]} drop-shadow-sm`}>
+                {personality.id.toUpperCase()}
+              </div>
+              <div className="text-left">
+                <h2 className="text-4xl md:text-5xl font-black text-slate-800 leading-tight">{personality.nameCn}</h2>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="h-0.5 w-6 bg-slate-200"></span>
+                  <p className="text-xl text-slate-400 font-serif italic">{personality.nameEn}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Account & Rarity Info */}
+            <div className="flex flex-wrap justify-center items-center gap-4">
+              {!user ? (
+                <button 
+                  onClick={handleLogin}
+                  className="px-6 py-2 bg-white text-slate-600 rounded-full text-xs font-bold border border-slate-200 hover:border-slate-300 transition-all flex items-center gap-2 shadow-sm"
+                >
+                  <LogIn size={14} /> 登录保存测试历史
+                </button>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-slate-100 shadow-sm">
+                    <img src={user.photoURL || ""} alt={user.displayName || ""} className="w-5 h-5 rounded-full border border-slate-100" />
+                    <span className="text-xs font-bold text-slate-600">{user.displayName}</span>
+                  </div>
+                  <button onClick={() => signOut(auth)} className="text-[10px] font-bold text-slate-400 hover:text-rose-500 uppercase tracking-widest transition-colors">登出</button>
+                </div>
+              )}
+              {rarity !== null && (
+                <div className="px-5 py-2 bg-slate-900 text-white rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-lg">
+                  <Activity size={12} className="text-emerald-400" /> 全球稀有度: {rarity}%
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-16">
         {/* Left Col: Avatar & Chart */}
@@ -215,141 +344,170 @@ export const Result: React.FC<ResultProps> = ({ scores, onRestart, isMuted }) =>
             </div>
             <RadarChart scores={scores} />
           </div>
+
+          {/* Moved AI Content: Motto Only */}
+          {analysis && !loading && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
+              <div className="bg-white border border-slate-100 p-10 rounded-[2.5rem] text-center shadow-lg relative overflow-hidden group">
+                <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${personality.colorClass.split(' ')[0]}`}></div>
+                <div className="inline-block mb-4">
+                  <div className="h-0.5 w-10 bg-slate-100 mx-auto mb-2"></div>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Personal Motto</h4>
+                </div>
+                <p className="text-3xl font-serif italic text-slate-900 font-bold leading-tight px-2 group-hover:scale-105 transition-transform">
+                  "{analysis.motto}"
+                </p>
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* Right Col: AI Analysis */}
         <div className="lg:col-span-7">
-          <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-8 md:p-12 h-full relative overflow-hidden">
-            {loading ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-20">
-                <div className="w-16 h-16 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin mb-6"></div>
-                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Sparkles className="animate-pulse text-amber-500"/> Gemini 智能分析中...</h3>
-                <p className="text-sm text-slate-400 mt-2">Generating personalized insights</p>
-              </div>
-            ) : analysis ? (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col space-y-10">
-                
-                {/* 1. Summary */}
-                <section>
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-2xl font-bold flex items-center gap-2 text-slate-800"><Sparkles className="text-amber-500" /> 深度性格解析</h3>
-                    <button 
-                      onClick={handlePlayTTS}
-                      className="ml-4 flex-shrink-0 flex items-center justify-center p-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shadow-sm"
-                      title={isPlayingTTS ? "停止朗读" : "朗读全文"}
-                    >
-                      {isPlayingTTS ? <Square size={18} className="fill-current" /> : <Volume2 size={18} />}
-                    </button>
+          <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-8 md:p-12 h-full relative overflow-hidden transition-all duration-500 hover:shadow-2xl">
+            <AnimatePresence mode="wait">
+              {loading ? (
+                <motion.div 
+                  key="thinking"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md z-20 text-center px-8"
+                >
+                  <div className="relative mb-12">
+                    <div className="w-20 h-20 border-2 border-slate-100 rounded-full border-t-amber-500 border-r-amber-500 animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Sparkles className="text-amber-500 animate-pulse" size={32} />
+                    </div>
                   </div>
-                  <p className="text-slate-600 leading-loose text-lg font-medium bg-slate-50 p-6 rounded-3xl border border-slate-100">{analysis.summary}</p>
-                </section>
+                  <h3 className="text-2xl font-black text-slate-900 mb-4">MBTI 精准计算系统</h3>
+                  <div className="h-6 overflow-hidden">
+                    <motion.p 
+                      key={thinkingStep}
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      className="text-amber-600 font-medium text-sm"
+                    >
+                      {AI_THINKING_STEPS[thinkingStep]}
+                    </motion.p>
+                  </div>
+                </motion.div>
+              ) : analysis ? (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-full">
+                
+                <div className="flex justify-between items-start mb-8">
+                  <h3 className="text-2xl font-bold flex items-center gap-2 text-slate-800"><Sparkles className="text-amber-500" /> 深度性格解析</h3>
+                  <button 
+                    onClick={handlePlayTTS}
+                    className="ml-4 flex-shrink-0 flex items-center justify-center p-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shadow-sm"
+                    title={isPlayingTTS ? "停止朗读" : "朗读全文"}
+                  >
+                    {isPlayingTTS ? <Square size={18} className="fill-current" /> : <Volume2 size={18} />}
+                  </button>
+                </div>
 
-                {/* 2. Strengths & Weaknesses */}
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-6 rounded-3xl bg-emerald-50/50 border border-emerald-100">
+                {/* Bento Grid Starts Here */}
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                  
+                  {/* 1. Summary - Big Block */}
+                  <section className="md:col-span-6 bg-slate-50 p-6 md:p-8 rounded-[2.5rem] border border-slate-100">
+                    <p className="text-slate-600 leading-loose text-lg font-medium">{analysis.summary}</p>
+                  </section>
+
+                  {/* 2. Strengths - Vertical Tall Block */}
+                  <section className="md:col-span-3 bg-emerald-50/50 border border-emerald-100 p-6 rounded-[2rem]">
                     <h4 className="font-bold text-emerald-700 flex items-center gap-2 mb-4 border-b border-emerald-200/50 pb-3"><Award size={20}/> 核心优势 (Strengths)</h4>
                     <ul className="space-y-3">
                       {analysis.strengths.map((s, i) => (
-                        <li key={i} className="flex items-start gap-3 text-slate-700 leading-relaxed">
+                        <li key={i} className="flex items-start gap-3 text-slate-700 text-sm leading-relaxed">
                           <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0"></div>
                           {s}
                         </li>
                       ))}
                     </ul>
-                  </div>
-                  <div className="p-6 rounded-3xl bg-orange-50/50 border border-orange-100">
+                  </section>
+
+                  {/* 3. Weaknesses - Vertical Tall Block */}
+                  <section className="md:col-span-3 bg-orange-50/50 border border-orange-100 p-6 rounded-[2rem]">
                     <h4 className="font-bold text-orange-700 flex items-center gap-2 mb-4 border-b border-orange-200/50 pb-3"><Compass size={20}/> 成长空间 (Weaknesses)</h4>
                     <ul className="space-y-3">
                       {analysis.weaknesses.map((w, i) => (
-                        <li key={i} className="flex items-start gap-3 text-slate-700 leading-relaxed">
+                        <li key={i} className="flex items-start gap-3 text-slate-700 text-sm leading-relaxed">
                           <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0"></div>
                           {w}
                         </li>
                       ))}
                     </ul>
-                  </div>
-                </section>
+                  </section>
 
-                {/* 3. Career Path */}
-                <section>
-                  <h4 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-5"><Target className="text-blue-500" size={22}/> 职业雷达 (Career Path)</h4>
-                  <div className="flex flex-wrap gap-3">
-                    {analysis.careerPath.map((c, i) => (
-                      <span key={i} className="px-5 py-2.5 bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow rounded-full text-slate-700 font-medium">
-                        {c}
-                      </span>
-                    ))}
-                  </div>
-                </section>
-
-                {/* 4. Relationships & Compatibility */}
-                <section className="p-6 md:p-8 bg-rose-50/30 border border-rose-100 rounded-3xl">
-                  <h4 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-4"><Heart className="text-rose-400 fill-rose-100" size={22}/> 情感与社交 (Relationships)</h4>
-                  <p className="text-slate-600 leading-relaxed mb-8 text-lg">{analysis.relationships}</p>
-                  
-                  {analysis.compatibility && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                   {/* 6. Compatibility - Grid inner Grid */}
+                   {analysis.compatibility && (
+                    <section className="md:col-span-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="bg-white p-5 rounded-2xl shadow-sm border border-rose-50 hover:border-rose-200 transition-colors">
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">💖 最佳伴侣</div>
-                        <div className="font-bold text-rose-600 text-lg">{analysis.compatibility.bestMatch}</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">💖 最佳伴侣</div>
+                        <div className="font-bold text-rose-600 text-sm">{analysis.compatibility.bestMatch}</div>
                       </div>
                       <div className="bg-white p-5 rounded-2xl shadow-sm border border-blue-50 hover:border-blue-200 transition-colors">
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">💼 最佳事业拍档</div>
-                        <div className="font-bold text-blue-600 text-lg">{analysis.compatibility.workPartner}</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">💼 最佳事业拍档</div>
+                        <div className="font-bold text-blue-600 text-sm">{analysis.compatibility.workPartner}</div>
                       </div>
                       <div className="bg-white p-5 rounded-2xl shadow-sm border border-amber-50 hover:border-amber-200 transition-colors">
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">⚠️ 需多包容了解</div>
-                        <div className="font-bold text-amber-600 text-lg">{analysis.compatibility.conflict}</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">⚠️ 需多包容了解</div>
+                        <div className="font-bold text-amber-600 text-sm">{analysis.compatibility.conflict}</div>
                       </div>
-                    </div>
+                    </section>
                   )}
-                </section>
 
-                {/* 5. Celebrities */}
-                {analysis.celebrities && analysis.celebrities.length > 0 && (
-                  <section>
-                    <h4 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-5"><Sparkles className="text-purple-500" size={22}/> 同款名人 (Celebrities)</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {analysis.celebrities.map((celeb, idx) => (
-                        <div key={idx} className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-1 transition-all group">
-                          <h5 className="font-extrabold text-slate-800 mb-2 group-hover:text-purple-600 transition-colors">{celeb.name}</h5>
-                          <p className="text-sm text-slate-500 leading-relaxed">{celeb.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {/* 6. Motto */}
-                <section className="mt-auto pt-10 pb-4 text-center">
-                  <div className="inline-block mb-6">
-                    <div className="h-px w-16 bg-slate-200 mx-auto mb-4"></div>
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">专属人生格言 / Motto</h4>
-                  </div>
-                  <p className="text-2xl md:text-3xl font-serif italic text-slate-800 font-medium px-4">"{analysis.motto}"</p>
-                </section>
-                
-              </motion.div>
-            ) : errorMsg ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8">
-                <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6 shadow-sm border border-rose-100">
-                  <AlertCircle size={40} />
+                  {/* 7. Celebrities - Moved here to the bottom of the bento grid */}
+                  {analysis.celebrities && analysis.celebrities.length > 0 && (
+                    <section className="md:col-span-6 bg-purple-50/30 border border-purple-100 p-6 md:p-8 rounded-[2.5rem]">
+                      <h4 className="text-lg font-black text-slate-800 flex items-center gap-2 mb-6">
+                        <Sparkles className="text-purple-500" size={20}/> 你的精神同行者 (Celebrities)
+                      </h4>
+                      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                        {analysis.celebrities.map((celeb, idx) => (
+                          <div key={idx} className="min-w-[220px] p-5 bg-white border border-slate-100 rounded-[2rem] shadow-sm flex-shrink-0 hover:shadow-md transition-all">
+                            <h5 className="font-black text-slate-900 text-sm mb-2">{celeb.name}</h5>
+                            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">{celeb.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800 mb-4">生成报告失败</h3>
-                <p className="text-slate-600 leading-relaxed max-w-sm mb-8">{errorMsg}</p>
-                <button 
-                  onClick={onRestart}
-                  className="px-8 py-3 bg-slate-900 text-white rounded-full font-bold hover:bg-slate-800 transition-colors shadow-lg"
-                >
-                  返回首页重试
-                </button>
-              </div>
+              </motion.div>
             ) : (
-              <div className="text-center text-slate-500 py-12">Failed to load analysis.</div>
+              <div className="h-full flex items-center justify-center text-slate-400">Error rendering analysis.</div>
             )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
+
+      {/* Suggested Tip Modal */}
+      <AnimatePresence>
+        {show建议Modal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShow建议Modal(null)} className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[2rem] shadow-2xl p-8 z-10"
+            >
+              <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mb-6">
+                <Info size={28} />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-4">{show建议Modal.title}</h3>
+              <p className="text-slate-600 leading-loose text-lg">{show建议Modal.content}</p>
+              <button 
+                onClick={() => setShow建议Modal(null)}
+                className="w-full mt-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-colors"
+              >
+                收起建议
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <div className="flex flex-col sm:flex-row justify-center gap-4 mb-16 px-4">
         <button 
@@ -381,7 +539,7 @@ export const Result: React.FC<ResultProps> = ({ scores, onRestart, isMuted }) =>
           <p className="text-slate-400 text-lg">获取更多AI硬核干货与创新玩法，掌握AI时代的核心竞争力。</p>
         </div>
         <div className="w-32 h-32 bg-white rounded-xl p-2 flex-shrink-0 relative z-10 shadow-lg">
-          <img src="/qrcode.png" alt="程同学二维码" className="w-full h-full object-cover rounded-lg" />
+          <img src="/wechat-qr.png" alt="关注程同学AI嘚啵嘚" className="w-full h-full object-cover rounded-lg" />
         </div>
       </div>
      </div> {/* End posterRef */}

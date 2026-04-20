@@ -1,0 +1,15 @@
+.quiz-container { padding: 40rpx; background: #fff; min-height: 100vh; box-sizing: border-box;}
+.progress-text { font-size: 28rpx; color: #64748b; font-weight: bold; margin-bottom: 20rpx; display: block; text-align: center; }
+.progress-bar-bg { width: 100%; height: 16rpx; background: #e2e8f0; border-radius: 8rpx; overflow: hidden; margin-bottom: 100rpx; }
+.progress-bar-fill { height: 100%; background: #10b981; transition: width 0.3s ease; }
+.question-box { text-align: center; margin-bottom: 120rpx; }
+.q-cn { font-size: 44rpx; font-weight: bold; color: #1e293b; display: block; margin-bottom: 24rpx; line-height: 1.4; }
+.q-en { font-size: 32rpx; color: #94a3b8; display: block; font-style: italic; line-height: 1.4; }
+.options-box { display: flex; flex-direction: column; gap: 24rpx; }
+.option-btn { padding: 30rpx; text-align: center; border-radius: 60rpx; font-size: 32rpx; font-weight: bold; transition: opacity 0.2s; }
+.option-btn:active { opacity: 0.7; }
+.agree-strong { background: rgba(16, 185, 129, 0.1); color: #047857; border: 2rpx solid #10b981; }
+.agree-light { background: rgba(16, 185, 129, 0.05); color: #059669; border: 2rpx solid rgba(16, 185, 129, 0.4); }
+.neutral { background: #f1f5f9; color: #64748b; border: 2rpx solid #cbd5e1; }
+.disagree-light { background: rgba(244, 63, 94, 0.05); color: #e11d48; border: 2rpx solid rgba(244, 63, 94, 0.4); }
+.disagree-strong { background: rgba(244, 63, 94, 0.1); color: #be123c; border: 2rpx solid #f43f5e; }

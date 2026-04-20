@@ -53,8 +53,8 @@ export interface ResultJSON {
   summary: string;
   strengths: string[];
   weaknesses: string[];
-  careerPath: string[]; // Fix typo, but requirements asked for careerPath
-  relationships: string;
+  careerPath?: string[];
+  relationships?: string;
   motto: string;
   celebrities: Celebrity[];
   compatibility: Compatibility;

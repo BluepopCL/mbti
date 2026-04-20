@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    function isValidRecord(data) {
+      return data.userId == request.auth.uid 
+        && data.personalityId is string
+        && data.scores is map
+        && data.createdAt == request.time;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create, update: if isOwner(userId) 
+        && request.resource.data.keys().hasAll(['uid', 'createdAt'])
+        && request.resource.data.uid == userId;
+    }
+
+    // Quiz Records
+    match /quiz_records/{recordId} {
+      allow list: if isAuth() && resource.data.userId == request.auth.uid;
+      allow get: if isAuth() && (resource.data.userId == request.auth.uid || resource.data.isPublic == true);
+      allow create: if isAuth() && isValidRecord(request.resource.data);
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // Global Stats - Publicly readable, updated via app logic (ideally cloud functions, but we simulate here)
+    match /stats/mbti {
+      allow read: if true;
+      // In a real app we might use a triggered function, here we allow incrementing
+      allow update: if isAuth(); 
+    }
+  }
+}

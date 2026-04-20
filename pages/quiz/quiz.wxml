@@ -1,0 +1,21 @@
+<view class="quiz-container">
+  <view class="progress flex-between">
+    <text class="progress-text">进度 {{currentIndex + 1}} / {{total}}</text>
+  </view>
+  <view class="progress-bar-bg">
+    <view class="progress-bar-fill" style="width:{{((currentIndex + 1) / total) * 100}}%"></view>
+  </view>
+
+  <view class="question-box">
+    <text class="q-cn">{{question.textCn}}</text>
+    <text class="q-en">{{question.textEn}}</text>
+  </view>
+
+  <view class="options-box">
+    <view class="option-btn agree-strong" bindtap="handleAnswer" data-val="3">完全同意</view>
+    <view class="option-btn agree-light" bindtap="handleAnswer" data-val="1">同意</view>
+    <view class="option-btn neutral" bindtap="handleAnswer" data-val="0">中立 / 都不</view>
+    <view class="option-btn disagree-light" bindtap="handleAnswer" data-val="-1">反对</view>
+    <view class="option-btn disagree-strong" bindtap="handleAnswer" data-val="-3">完全反对</view>
+  </view>
+</view>

@@ -1,0 +1,64 @@
+<view class="container" wx:if="{{loading}}">
+  <view class="loading-box">
+    <text class="loading-icon">✨</text>
+    <text class="loading-text">Gemini 智能分析中...</text>
+  </view>
+</view>
+
+<view class="container error-box" wx:elif="{{errorMsg}}">
+  <text class="error-title">生成报告失败</text>
+  <text class="error-desc">{{errorMsg}}</text>
+  <button class="btn-retry" bindtap="goHome">返回首页重试</button>
+</view>
+
+<scroll-view scroll-y class="result-scroll" wx:else>
+  <view class="result-header {{personality.category}}">
+    <image class="avatar" src="{{personality.avatarUrl}}" mode="aspectFit"></image>
+    <text class="type-id">{{personality.id}}-{{variant}}</text>
+    <text class="type-name">{{personality.nameCn}}</text>
+    <text class="type-en">{{personality.nameEn}}</text>
+  </view>
+  
+  <view class="card summary-card">
+    <view class="card-title">深度性格解析</view>
+    <text class="summary-text">{{analysis.summary}}</text>
+  </view>
+  
+  <view class="card strengths-card">
+    <view class="card-title text-green">优势 (Strengths)</view>
+    <view class="list">
+      <text class="list-item" wx:for="{{analysis.strengths}}" wx:key="*this">• {{item}}</text>
+    </view>
+  </view>
+  
+  <view class="card weaknesses-card">
+    <view class="card-title text-orange">成长空间 (Weaknesses)</view>
+    <view class="list">
+      <text class="list-item" wx:for="{{analysis.weaknesses}}" wx:key="*this">• {{item}}</text>
+    </view>
+  </view>
+  
+  <view class="card career-card">
+    <view class="card-title text-blue">职业建议 (Career Path)</view>
+    <view class="tags">
+      <text class="tag" wx:for="{{analysis.careerPath}}" wx:key="*this">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="card compat-card">
+    <view class="card-title text-pink">社交与关系</view>
+    <view class="compat-item"><text class="bold">伴侣:</text> {{analysis.compatibility.bestMatch}}</view>
+    <view class="compat-item"><text class="bold">拍档:</text> {{analysis.compatibility.workPartner}}</view>
+    <view class="compat-item"><text class="bold">包容:</text> {{analysis.compatibility.conflict}}</view>
+  </view>
+  
+  <view class="motto-box">
+    <text class="motto-label">专属人生格言</text>
+    <text class="motto-text">"{{analysis.motto}}"</text>
+  </view>
+  
+  <view class="bottom-actions">
+    <button class="btn-share" open-type="share">分享给好友</button>
+    <button class="btn-home" bindtap="goHome">重新测试</button>
+  </view>
+</scroll-view>

@@ -1,0 +1,25 @@
+<!-- pages/index/index.wxml -->
+<view class="container wrap bg-slate">
+  <view class="hero">
+    <text class="title">发现真实的自己</text>
+    <text class="subtitle">AI驱动的MBTI深度性格解析，只需2分钟，探索你的内在潜能、事业轨迹与灵魂伴侣。</text>
+  </view>
+  
+  <view class="cards">
+    <view class="card">
+      <text class="emoji">🧠</text>
+      <text class="card-title">15道核心问题</text>
+      <text class="card-desc">精准测算，化繁为简。</text>
+    </view>
+    <view class="card">
+      <text class="emoji">🔮</text>
+      <text class="card-title">Gemini AI 解析</text>
+      <text class="card-desc">专属你的深度报告。</text>
+    </view>
+  </view>
+
+  <button class="btn-start" bindtap="startQuiz">
+    <text>开始测算 (Start Quiz)</text>
+    <text class="icon">➔</text>
+  </button>
+</view>

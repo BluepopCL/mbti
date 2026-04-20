@@ -1,0 +1,53 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User specific information and preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "QuizRecord": {
+      "title": "MBTI Quiz Record",
+      "description": "A single MBTI test result saved by a user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "personalityId": { "type": "string" },
+        "variant": { "type": "string" },
+        "scores": { "type": "object" },
+        "analysis": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "personalityId", "scores", "createdAt"]
+    },
+    "GlobalStats": {
+      "title": "Global MBTI Stats",
+      "description": "Aggregated statistics for MBTI types across all users",
+      "type": "object",
+      "properties": {
+        "typeCounts": { "type": "object" },
+        "totalTests": { "type": "integer" }
+      }
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Private user profile data"
+    },
+    "quiz_records/{recordId}": {
+      "schema": "QuizRecord",
+      "description": "Individual test results"
+    },
+    "stats/mbti": {
+      "schema": "GlobalStats",
+      "description": "Global distribution statistics"
+    }
+  }
+}
