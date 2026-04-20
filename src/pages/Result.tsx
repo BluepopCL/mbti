@@ -393,92 +393,104 @@ export const Result: React.FC<ResultProps> = ({ scores, onRestart, isMuted }) =>
                   </div>
                 </motion.div>
               ) : analysis ? (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-full">
-                
-                <div className="flex justify-between items-start mb-8">
-                  <h3 className="text-2xl font-bold flex items-center gap-2 text-slate-800"><Sparkles className="text-amber-500" /> 深度性格解析</h3>
-                  <button 
-                    onClick={handlePlayTTS}
-                    className="ml-4 flex-shrink-0 flex items-center justify-center p-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shadow-sm"
-                    title={isPlayingTTS ? "停止朗读" : "朗读全文"}
-                  >
-                    {isPlayingTTS ? <Square size={18} className="fill-current" /> : <Volume2 size={18} />}
-                  </button>
-                </div>
-
-                {/* Bento Grid Starts Here */}
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-full">
                   
-                  {/* 1. Summary - Big Block */}
-                  <section className="md:col-span-6 bg-slate-50 p-6 md:p-8 rounded-[2.5rem] border border-slate-100">
-                    <p className="text-slate-600 leading-loose text-lg font-medium">{analysis.summary}</p>
-                  </section>
+                  <div className="flex justify-between items-start mb-8">
+                    <h3 className="text-2xl font-bold flex items-center gap-2 text-slate-800"><Sparkles className="text-amber-500" /> 深度性格解析</h3>
+                    <button 
+                      onClick={handlePlayTTS}
+                      className="ml-4 flex-shrink-0 flex items-center justify-center p-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shadow-sm"
+                      title={isPlayingTTS ? "停止朗读" : "朗读全文"}
+                    >
+                      {isPlayingTTS ? <Square size={18} className="fill-current" /> : <Volume2 size={18} />}
+                    </button>
+                  </div>
 
-                  {/* 2. Strengths - Vertical Tall Block */}
-                  <section className="md:col-span-3 bg-emerald-50/50 border border-emerald-100 p-6 rounded-[2rem]">
-                    <h4 className="font-bold text-emerald-700 flex items-center gap-2 mb-4 border-b border-emerald-200/50 pb-3"><Award size={20}/> 核心优势 (Strengths)</h4>
-                    <ul className="space-y-3">
-                      {analysis.strengths.map((s, i) => (
-                        <li key={i} className="flex items-start gap-3 text-slate-700 text-sm leading-relaxed">
-                          <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0"></div>
-                          {s}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-
-                  {/* 3. Weaknesses - Vertical Tall Block */}
-                  <section className="md:col-span-3 bg-orange-50/50 border border-orange-100 p-6 rounded-[2rem]">
-                    <h4 className="font-bold text-orange-700 flex items-center gap-2 mb-4 border-b border-orange-200/50 pb-3"><Compass size={20}/> 成长空间 (Weaknesses)</h4>
-                    <ul className="space-y-3">
-                      {analysis.weaknesses.map((w, i) => (
-                        <li key={i} className="flex items-start gap-3 text-slate-700 text-sm leading-relaxed">
-                          <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0"></div>
-                          {w}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-
-                   {/* 6. Compatibility - Grid inner Grid */}
-                   {analysis.compatibility && (
-                    <section className="md:col-span-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="bg-white p-5 rounded-2xl shadow-sm border border-rose-50 hover:border-rose-200 transition-colors">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">💖 最佳伴侣</div>
-                        <div className="font-bold text-rose-600 text-sm">{analysis.compatibility.bestMatch}</div>
-                      </div>
-                      <div className="bg-white p-5 rounded-2xl shadow-sm border border-blue-50 hover:border-blue-200 transition-colors">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">💼 最佳事业拍档</div>
-                        <div className="font-bold text-blue-600 text-sm">{analysis.compatibility.workPartner}</div>
-                      </div>
-                      <div className="bg-white p-5 rounded-2xl shadow-sm border border-amber-50 hover:border-amber-200 transition-colors">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">⚠️ 需多包容了解</div>
-                        <div className="font-bold text-amber-600 text-sm">{analysis.compatibility.conflict}</div>
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                    <section className="md:col-span-6 bg-slate-50 p-6 md:p-8 rounded-[2.5rem] border border-slate-100">
+                      <p className="text-slate-600 leading-loose text-lg font-medium">{analysis.summary}</p>
                     </section>
-                  )}
 
-                  {/* 7. Celebrities - Moved here to the bottom of the bento grid */}
-                  {analysis.celebrities && analysis.celebrities.length > 0 && (
-                    <section className="md:col-span-6 bg-purple-50/30 border border-purple-100 p-6 md:p-8 rounded-[2.5rem]">
-                      <h4 className="text-lg font-black text-slate-800 flex items-center gap-2 mb-6">
-                        <Sparkles className="text-purple-500" size={20}/> 你的精神同行者 (Celebrities)
-                      </h4>
-                      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                        {analysis.celebrities.map((celeb, idx) => (
-                          <div key={idx} className="min-w-[220px] p-5 bg-white border border-slate-100 rounded-[2rem] shadow-sm flex-shrink-0 hover:shadow-md transition-all">
-                            <h5 className="font-black text-slate-900 text-sm mb-2">{celeb.name}</h5>
-                            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">{celeb.description}</p>
-                          </div>
+                    <section className="md:col-span-3 bg-emerald-50/50 border border-emerald-100 p-6 rounded-[2rem]">
+                      <h4 className="font-bold text-emerald-700 flex items-center gap-2 mb-4 border-b border-emerald-200/50 pb-3"><Award size={20}/> 核心优势 (Strengths)</h4>
+                      <ul className="space-y-3">
+                        {analysis.strengths.map((s, i) => (
+                          <li key={i} className="flex items-start gap-3 text-slate-700 text-sm leading-relaxed">
+                            <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0"></div>
+                            {s}
+                          </li>
                         ))}
-                      </div>
+                      </ul>
                     </section>
-                  )}
-                </div>
-              </motion.div>
-            ) : (
-              <div className="h-full flex items-center justify-center text-slate-400">Error rendering analysis.</div>
-            )}
+
+                    <section className="md:col-span-3 bg-orange-50/50 border border-orange-100 p-6 rounded-[2rem]">
+                      <h4 className="font-bold text-orange-700 flex items-center gap-2 mb-4 border-b border-orange-200/50 pb-3"><Compass size={20}/> 成长空间 (Weaknesses)</h4>
+                      <ul className="space-y-3">
+                        {analysis.weaknesses.map((w, i) => (
+                          <li key={i} className="flex items-start gap-3 text-slate-700 text-sm leading-relaxed">
+                            <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0"></div>
+                            {w}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+
+                    {analysis.compatibility && (
+                      <section className="md:col-span-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-rose-50 hover:border-rose-200 transition-colors">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">💖 最佳伴侣</div>
+                          <div className="font-bold text-rose-600 text-sm">{analysis.compatibility.bestMatch}</div>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-blue-50 hover:border-blue-200 transition-colors">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">💼 最佳事业拍档</div>
+                          <div className="font-bold text-blue-600 text-sm">{analysis.compatibility.workPartner}</div>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-amber-50 hover:border-amber-200 transition-colors">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">⚠️ 需多包容了解</div>
+                          <div className="font-bold text-amber-600 text-sm">{analysis.compatibility.conflict}</div>
+                        </div>
+                      </section>
+                    )}
+
+                    {analysis.celebrities && analysis.celebrities.length > 0 && (
+                      <section className="md:col-span-6 bg-purple-50/30 border border-purple-100 p-6 md:p-8 rounded-[2.5rem]">
+                        <h4 className="text-lg font-black text-slate-800 flex items-center gap-2 mb-6">
+                          <Sparkles className="text-purple-500" size={20}/> 你的精神同行者 (Celebrities)
+                        </h4>
+                        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                          {analysis.celebrities.map((celeb, idx) => (
+                            <div key={idx} className="min-w-[220px] p-5 bg-white border border-slate-100 rounded-[2rem] shadow-sm flex-shrink-0 hover:shadow-md transition-all">
+                              <h5 className="font-black text-slate-900 text-sm mb-2">{celeb.name}</h5>
+                              <p className="text-[11px] text-slate-500 leading-relaxed font-medium">{celeb.description}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }}
+                  className="h-full flex flex-col items-center justify-center text-center p-8"
+                >
+                  <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6">
+                    <RotateCcw size={32} />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800 mb-2">生成解析失败</h3>
+                  <p className="text-slate-500 mb-8 max-w-xs">{errorMsg || "AI 暂时无法响应，请检查网络或稍后重试。"}</p>
+                  <button 
+                    onClick={() => {
+                      setErrorMsg(null);
+                      setLoading(true);
+                    }}
+                    className="px-8 py-3 bg-slate-900 text-white rounded-full font-bold hover:bg-slate-800 transition-colors"
+                  >
+                    重试生成
+                  </button>
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         </div>
