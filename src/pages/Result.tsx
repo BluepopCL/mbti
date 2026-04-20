@@ -117,8 +117,10 @@ export const Result: React.FC<ResultProps> = ({ scores, onRestart, isMuted }) =>
         window.speechSynthesis.speak(utterance);
       }
     }).catch(err => {
-      console.error(err);
-      setErrorMsg('生成分析报告时出现错误，请检查网络或稍后再试。');
+      console.error("Analysis Fetch Error:", err);
+      // Try to extract a more specific error message if possible
+      const detailedError = err.message || '生成分析报告时出现错误，请检查网络或稍后再试。';
+      setErrorMsg(detailedError);
       setLoading(false);
     });
   }, [scores, user]);
